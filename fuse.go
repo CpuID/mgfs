@@ -43,7 +43,7 @@ type mgoFS struct{}
 
 func (mgoFS) Root() (fs.Node, error) {
 	log.Println("returning root node")
-	return Dir{"Root"}, nil
+	return &Dir{"Root"}, nil
 }
 
 // Dir implements both Node and Handle for the root directory.
@@ -51,18 +51,19 @@ type Dir struct {
 	name string
 }
 
-func (d Dir) Attr(a *fuse.Attr) {
+func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Println("Dir.Attr() for ", d.name)
 	a.Inode = 1
 	a.Mode = os.ModeDir | 0555
+	return nil
 }
 
-func (Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
+func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	log.Println("Dir.Lookup():", name)
 
 	// Check if lookup is on the GridFS
 	if name == gridfsPrefix {
-		return GridFs{Name: gridfsPrefix}, nil
+		return &GridFs{Name: gridfsPrefix}, nil
 	}
 
 	db, s := getDb()
@@ -76,14 +77,14 @@ func (Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 	for _, collName := range names {
 		if collName == name {
-			return CollFile{Name: name}, nil
+			return &CollFile{Name: name}, nil
 		}
 	}
 
 	return nil, fuse.ENOENT
 }
 
-func (d Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	log.Println("Dir.ReadDirAll():", d.name)
 
 	db, s := getDb()

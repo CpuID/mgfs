@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 )
 
 var getDb func() (*mgo.Database, *mgo.Session)

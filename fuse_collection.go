@@ -8,7 +8,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // CollFile implements both Node and Handle for a collection.
@@ -27,14 +27,15 @@ func idQuery(id string) bson.M {
 	}
 }
 
-func (f CollFile) Attr(a *fuse.Attr) {
+func (f *CollFile) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Printf("CollFile.Attr() for: %+v", f)
 	a.Mode = os.ModeDir | 0700
 	a.Uid = uint32(os.Getuid())
 	a.Gid = uint32(os.Getgid())
+	return nil
 }
 
-func (c CollFile) Lookup(ctx context.Context, fname string) (fs.Node, error) {
+func (c *CollFile) Lookup(ctx context.Context, fname string) (fs.Node, error) {
 	log.Printf("CollFile[%s].Lookup(): %s\n", c.Name, fname)
 
 	if !strings.HasSuffix(fname, ".json") {
@@ -54,10 +55,10 @@ func (c CollFile) Lookup(ctx context.Context, fname string) (fs.Node, error) {
 
 	f.coll = c.Name
 
-	return f, nil
+	return &f, nil
 }
 
-func (c CollFile) ReadDirAll(ctx context.Context) (ents []fuse.Dirent, ferr error) {
+func (c *CollFile) ReadDirAll(ctx context.Context) (ents []fuse.Dirent, ferr error) {
 	log.Println("CollFile.ReadDirAll(): ", c.Name)
 
 	db, s := getDb()
@@ -82,7 +83,7 @@ func (c CollFile) ReadDirAll(ctx context.Context) (ents []fuse.Dirent, ferr erro
 	return ents, nil
 }
 
-func (c CollFile) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
+func (c *CollFile) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 	log.Printf("DocumentFile.Remove(): %s/%s \n", c.Name, req.Name)
 
 	if !strings.HasSuffix(req.Name, ".json") {

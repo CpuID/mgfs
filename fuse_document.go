@@ -9,7 +9,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // DocumentFile implements both Node and Handle for a document from a collection.
@@ -25,16 +25,16 @@ type DocumentFile struct {
 	MTime time.Time
 }
 
-func (d DocumentFile) idQuery() bson.M {
+func (d *DocumentFile) idQuery() bson.M {
 	return bson.M{"_id": d.Id}
 }
 
-func (d DocumentFile) Attr(a *fuse.Attr) {
+func (d *DocumentFile) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Printf("DocumentFile.Attr() for: %+v", d)
 	_, size, err := d.readDocument()
 
 	if err != nil {
-		return
+		return err
 	}
 
 	if d.CTime.IsZero() {
@@ -51,15 +51,16 @@ func (d DocumentFile) Attr(a *fuse.Attr) {
 	a.Ctime = d.CTime
 	a.Atime = d.ATime
 	a.Mtime = d.MTime
+	return nil
 }
 
-func (d DocumentFile) Lookup(ctx context.Context, fname string) (fs.Node, error) {
+func (d *DocumentFile) Lookup(ctx context.Context, fname string) (fs.Node, error) {
 	log.Printf("DocumentFile[%s].Lookup(): %s\n", d.coll, fname)
 
 	return nil, fuse.ENOENT
 }
 
-func (d DocumentFile) ReadAll(ctx context.Context) ([]byte, error) {
+func (d *DocumentFile) ReadAll(ctx context.Context) ([]byte, error) {
 	log.Printf("DocumentFile[%s].ReadAll(): %s\n", d.coll, d.Id)
 
 	strval, _, err := d.readDocument()
@@ -73,7 +74,7 @@ func (d DocumentFile) ReadAll(ctx context.Context) ([]byte, error) {
 }
 
 // Read a document and return it as a JSON string
-func (d DocumentFile) readDocument() (string, uint64, error) {
+func (d *DocumentFile) readDocument() (string, uint64, error) {
 	db, s := getDb()
 	defer s.Close()
 
@@ -95,7 +96,7 @@ func (d DocumentFile) readDocument() (string, uint64, error) {
 	return strval, uint64(len(buf)), nil
 }
 
-func (d DocumentFile) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+func (d *DocumentFile) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 	log.Printf("DocumentFile.Write(%s) \n", d.Id)
 
 	db, s := getDb()
