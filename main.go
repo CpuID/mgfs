@@ -1,13 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/urfave/cli"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var appName string = "mgfs"
@@ -23,10 +24,17 @@ func handleSignal(sc chan os.Signal, mount_point string) {
 	}
 }
 
-func main() {
-	log.SetFlags(0)
-	log.SetPrefix(appName + ": ")
+func verifyRequiredFlags(c *cli.Context) error {
+	if len(c.String("addr")) == 0 {
+		return errors.New("Error: addr (a) flag is required.")
+	}
+	if len(c.String("mount")) == 0 {
+		return errors.New("Error: mount (m) flag is required.")
+	}
+	return nil
+}
 
+func main() {
 	app := cli.NewApp()
 	app.Name = appName
 	app.Usage = "A FUSE filesystem which uses MongoDB GridFS as a storage backend"
@@ -35,13 +43,13 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "addr, a",
-			Value: "localhost",
-			Usage: "MongoDB host or IP to connect to",
+			Value: "",
+			Usage: "MongoDB host or IP to connect to (Required)",
 		},
 		cli.IntFlag{
 			Name:  "port, p",
 			Value: 27017,
-			Usage: "MongoDB port to connect to",
+			Usage: "MongoDB port to connect to (Optional)",
 		},
 		cli.StringFlag{
 			Name:  "user, u",
@@ -53,25 +61,19 @@ func main() {
 			Value: "",
 			Usage: "Password to access MongoDB (Optional)",
 		},
-		// TODO: do we want this? is this the bucket name? or a different prefix?
-		cli.StringFlag{
-			Name:  "gridfs, g",
-			Value: "fs",
-			Usage: "GridFS prefix",
-		},
 		cli.StringFlag{
 			Name:  "bucket, b",
 			Value: "fs",
-			Usage: "Bucket (Database) Name in MongoDB",
+			Usage: "Bucket (Database) Name in MongoDB (Optional)",
 		},
 		cli.StringFlag{
 			Name:  "mount, m",
-			Value: "/mnt/mgfs",
-			Usage: "Mount point on local OS",
+			Value: "",
+			Usage: "Mount point on local OS (Required)",
 		},
 	}
 
-	app.Action = func(c *cli.Context) {
+	app.Action = func(c *cli.Context) error {
 		//dbName := c.Args()[0]
 		dbName := c.String("bucket")
 		//mountPoint := c.Args()[1]
@@ -80,7 +82,6 @@ func main() {
 		dbPort := string(c.String("port"))
 		dbUser := c.String("user")
 		dbPassword := c.String("password")
-		gridfsPrefix = c.String("gridfs")
 		credentials := dbUser + ":" + dbPassword
 
 		// Connect to the database
@@ -98,6 +99,17 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		return nil
+	}
+
+	app.Before = func(c *cli.Context) error {
+		err := verifyRequiredFlags(c)
+		if err != nil {
+			log.Printf("%s\n\n", err.Error())
+			cli.ShowAppHelp(c)
+			os.Exit(1)
+		}
+		return nil
 	}
 
 	app.Run(os.Args)
