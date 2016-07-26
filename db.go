@@ -15,7 +15,9 @@ func initDb(dbName, dbHost, dbPort, credentials string) {
 	}
 	url := fmt.Sprintf("mongodb://%s:%s/%s", dbHost, dbPort, dbName)
 	mgoSession, err := mgo.Dial(url)
-	checkErrorAndExit(err, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Println("Dialed:", url)
 

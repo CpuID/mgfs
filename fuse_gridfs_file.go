@@ -29,7 +29,9 @@ func (g *GridFsFile) Attr(ctx context.Context, a *fuse.Attr) error {
 	defer s.Close()
 
 	file, err := db.GridFS(g.Prefix).OpenId(g.Id)
-	checkError(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer file.Close()
 
 	a.Mode = 0400

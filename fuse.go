@@ -19,7 +19,9 @@ func mount(point string, fsname string) error {
 		fuse.VolumeName(fsname),
 		fuse.LocalVolume(),
 	)
-	checkErrorAndExit(err, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer c.Close()
 
 	log.Println("Mounted: ", point)
@@ -36,6 +38,16 @@ func mount(point string, fsname string) error {
 	}
 	return nil
 }
+
+func unmount(mount_point string) {
+	log.Printf("Unmounting %s\n", mount_point)
+	err := fuse.Unmount(mount_point)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+///////////////////////////////////////////
 
 // mgoFS implements my mgo fuse filesystem
 type mgoFS struct{}
