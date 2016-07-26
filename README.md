@@ -15,6 +15,11 @@ or delete the documents. You may also read and delete GridFs files under the spe
 
 Don't forget to unmount the database when you are done (`umount /path/to/mount/dir`).
 
+# Caveats
+
+There is no caching layer implemented in-process or externally (eg. Redis or Memcached). As long as MongoDB is close to your FUSE process latency wise,
+you should have no issues. PRs are welcome to implement caching if there is interest :)
+
 # Todo
 - [x] Support GridFS read 
 - [x] Support GridFS remove 
