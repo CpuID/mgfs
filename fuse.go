@@ -12,7 +12,6 @@ import (
 )
 
 func mount(point string, fsname string) error {
-
 	// startup mount
 	c, err := fuse.Mount(
 		point,

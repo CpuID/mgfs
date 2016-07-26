@@ -1,0 +1,8 @@
+version: '2'
+
+services:
+  # Used by test suite as a real MongoDB backend.
+  mongodb:
+    image: mongo:3.3.10
+    ports:
+      - "27017"
