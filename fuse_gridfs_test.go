@@ -21,6 +21,10 @@ func TestBuildGridFsPath(t *testing.T) {
 			"/aaa/bbb/ccc",
 			"ddd",
 		},
+		"aaa/bbb/ccc": []string{
+			"/aaa/bbb/ccc",
+			"",
+		},
 	}
 	for k, v := range tests {
 		result, err := buildGridFsPath(v[0], v[1])

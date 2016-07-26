@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
+	//"path/filepath"
 	"strings"
 	"time"
 
@@ -24,7 +24,11 @@ func buildGridFsPath(parent_dir string, filename string) (string, error) {
 	if parent_dir == "/" {
 		return filename, nil
 	} else if len(parent_dir) > 1 {
-		return fmt.Sprintf("%s/%s", parent_dir[1:], filename), nil
+		separator := "/"
+		if len(filename) == 0 {
+			separator = ""
+		}
+		return fmt.Sprintf("%s%s%s", parent_dir[1:], separator, filename), nil
 	} else {
 		return "", errors.New("buildGridFsPath: parent_dir must not be empty")
 	}
@@ -32,7 +36,16 @@ func buildGridFsPath(parent_dir string, filename string) (string, error) {
 
 // If there are files in a prefix, it is considered a directory.
 func doFilesExistInGridFsPrefix(db *mgo.Database, parent_dir string, filename string) (bool, error) {
-	query, err := filesInGridFsPrefixQuery(db, parent_dir, filename)
+	gridfs_path, err := buildGridFsPath(parent_dir, filename)
+	if err != nil {
+		return false, err
+	}
+	regex := bson.RegEx{
+		Pattern: fmt.Sprintf("^%s/.*", gridfs_path),
+		Options: "",
+	}
+	log.Printf("doFilesExistInGridFsPrefix[%s, %s]: Regex = %s : %s\n", parent_dir, filename, regex.Pattern, regex.Options)
+	query, err := filesInGridFsPrefixQuery(db, regex)
 	if err != nil {
 		return false, err
 	}
@@ -47,30 +60,46 @@ func doFilesExistInGridFsPrefix(db *mgo.Database, parent_dir string, filename st
 	}
 }
 
-func filesInGridFsPrefix(db *mgo.Database, parent_dir string, filename string) ([]string, error) {
-	query, err := filesInGridFsPrefixQuery(db, parent_dir, filename)
+// Return files and directories in this explicit parent_dir (no subdirs counted).
+// We need to be creative when it comes to directories, to build the list based on the child filenames.
+func filesAndDirsInGridFsPrefix(db *mgo.Database, parent_dir string) ([]*mgo.GridFile, error) {
+	gridfs_path, err := buildGridFsPath(parent_dir, "")
 	if err != nil {
-		return []string{}, err
+		return []*mgo.GridFile{}, err
 	}
+	// TODO: we need to filter out anything that is further down the directory hierarchy than the current directory.
+	// would be more efficient to do it in the MongoDB query if possible? could be lots of childrens children
+	fmt.Println(gridfs_path)
+	regex := bson.RegEx{
+		Pattern: `^.\*`,
+		//fmt.Sprintf(`^%s.*`, gridfs_path),
+		Options: "",
+	}
+	log.Printf("filesInGridFsPrefix[%s]: Regex = %s : %s\n", parent_dir, regex.Pattern, regex.Options)
+	query, err := filesInGridFsPrefixQuery(db, regex)
+	fmt.Printf("query: %+v\n", query)
+	if err != nil {
+		return []*mgo.GridFile{}, err
+	}
+	count, err := query.Count()
+	if err != nil {
+		return []*mgo.GridFile{}, err
+	}
+	fmt.Printf("Count: %d\n", count)
 	iter := query.Iter()
-	var results []string
+	var results []*mgo.GridFile
 	var result *mgo.GridFile
 	for iter.Next(&result) {
-		results = append(results, result.Name())
+		log.Printf("found file: %s\n", result.Name())
+		results = append(results, result)
 	}
 	if err := iter.Close(); err != nil {
-		return []string{}, err
+		return []*mgo.GridFile{}, err
 	}
 	return results, nil
 }
 
-func filesInGridFsPrefixQuery(db *mgo.Database, parent_dir string, filename string) (*mgo.Query, error) {
-	gridfs_path, err := buildGridFsPath(parent_dir, filename)
-	if err != nil {
-		return &mgo.Query{}, err
-	}
-	regex := fmt.Sprintf("^%s/.*", gridfs_path)
-	log.Printf("filesInGridFsPrefixQuery[%s, %s]: Regex = %s\n", parent_dir, filename, regex)
+func filesInGridFsPrefixQuery(db *mgo.Database, regex bson.RegEx) (*mgo.Query, error) {
 	return db.GridFS("fs").Find(bson.M{"filename": bson.M{"$regex": regex}}), nil
 }
 
@@ -97,12 +126,13 @@ func (g *GridFS) Root() (fs.Node, error) {
 ////////////////////////////////////////////////////////
 
 type Dir struct {
-	Inode   uint64
-	Name    string
-	Mode    os.FileMode // 0755
-	ModTime time.Time
-	Uid     uint32
-	Gid     uint32
+	Inode     uint64
+	Name      string
+	ParentDir string
+	Mode      os.FileMode // 0755
+	ModTime   time.Time
+	Uid       uint32
+	Gid       uint32
 }
 
 var _ = fs.Node(&Dir{})
@@ -187,6 +217,7 @@ func (d *Dir) Lookup(ctx context.Context, filename string) (fs.Node, error) {
 				Name: fmt.Sprintf("%s/%s", d.Name, filename),
 				Mode: 0755,
 				// TODOLATER: do we care about directory modtime? not easy to obtain?
+				ParentDir: d.Name,
 			}, nil
 		} else {
 			// Not a file in GridFS or a GridFS file prefix, doesn't exist.
@@ -198,7 +229,7 @@ func (d *Dir) Lookup(ctx context.Context, filename string) (fs.Node, error) {
 		return nil, fuse.EIO
 	}
 
-	var result interface{}
+	var result *mgo.GridFile
 	err = query.One(&result)
 	if err != nil {
 		log.Printf("Dir[%s].Lookup(%s): Error retrieving from GridFS: %s\n", d.Name, filename, err.Error())
@@ -207,19 +238,13 @@ func (d *Dir) Lookup(ctx context.Context, filename string) (fs.Node, error) {
 	log.Printf("%+v\n", result)
 	log.Printf("Dir[%s].Lookup(%s): returning as a File{}.\n", d.Name, filename)
 	return &File{
-		MongoObjectId: "",
-		Name:          "",
-		Prefix:        "",
+		MongoObjectId: result.Id().(bson.ObjectId),
+		Name:          result.Name(),
+		ParentDir:     d.Name,
 	}, nil
-
-	// TODO: return a File here?
-	//gf.Name = file.Name()
-	//gf.Prefix = d.Name
-
-	//return &gf, nil
 }
 
-func (d *Dir) ReadDirAll(ctx context.Context) (ents []fuse.Dirent, ferr error) {
+func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	log.Printf("Dir[%s].ReadDirAll()", d.Name)
 
 	// TODO: change from object ID listings to filename listings in a directory hierarchy...
@@ -227,19 +252,33 @@ func (d *Dir) ReadDirAll(ctx context.Context) (ents []fuse.Dirent, ferr error) {
 	db, s := getDb()
 	defer s.Close()
 
-	gfs := db.GridFS("fs")
-	iter := gfs.Find(nil).Iter()
-
-	var f *mgo.GridFile
-	for gfs.OpenNext(iter, &f) {
-		name := f.Id().(bson.ObjectId).Hex() + filepath.Ext(f.Name())
-		ents = append(ents, fuse.Dirent{Name: name, Type: fuse.DT_File})
-	}
-
-	if err := iter.Close(); err != nil {
+	files, err := filesAndDirsInGridFsPrefix(db, d.Name)
+	if err != nil {
 		log.Printf("Could not list GridFS files: %s \n", err.Error())
 		return nil, fuse.EIO
 	}
+
+	var ents []fuse.Dirent
+	for _, v := range files {
+		ents = append(ents, fuse.Dirent{
+			Name: v.Name(),
+			// TODO: some might be dirs, need to distinguish between them.
+			Type: fuse.DT_File,
+		})
+	}
+
+	//iter := gfs.Find().Iter()
+
+	//var f *mgo.GridFile
+	//for gfs.OpenNext(iter, &f) {
+	//	name := f.Id().(bson.ObjectId).Hex() + filepath.Ext(f.Name())
+	//	ents = append(ents, fuse.Dirent{Name: name, Type: fuse.DT_File})
+	//}
+
+	//if err := iter.Close(); err != nil {
+	//	log.Printf("Could not list GridFS files: %s \n", err.Error())
+	//	return nil, fuse.EIO
+	//}
 
 	return ents, nil
 }
@@ -274,7 +313,7 @@ func (d *Dir) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 type File struct {
 	MongoObjectId bson.ObjectId `bson:"_id"`
 	Name          string
-	Prefix        string
+	ParentDir     string
 
 	Dirent fuse.Dirent
 	Fattr  fuse.Attr
