@@ -2,6 +2,8 @@
 
 *mgfs is a [FUSE](https://bazil.org/fuse/) filesystem which uses [MongoDB GridFS](https://docs.mongodb.com/manual/core/gridfs/) as a storage backend.*
 
+[![Build Status](https://travis-ci.org/CpuID/mgfs.svg?branch=master)](https://travis-ci.org/CpuID/mgfs)
+
 # Installation
 You need to have [Golang](https://golang.org/doc/install) installed.
 Open your terminal, and run `go get github.com/amsa/mgfs`. Now you should be able to run `mgfs` (be sure to add $GOPATH/bin to your $PATH).
