@@ -2,9 +2,8 @@ sudo: required
 dist: trusty
 
 language: go
-
-env:
-  DOCKER_COMPOSE_VERSION: 1.7.1
+go:
+  - 1.6.3
 
 services:
   - docker
@@ -13,4 +12,9 @@ before_install:
   - sudo apt-get install -qq pkg-config fuse
   - sudo modprobe fuse
   - sudo chmod 666 /dev/fuse
-  - sudo chown root:$USER /etc/fuse.conf 
+  - sudo chown root:$USER /etc/fuse.conf
+  - go get github.com/mattn/goveralls
+  - go get golang.org/x/tools/cmd/cover
+
+script:
+  - $HOME/gopath/bin/goveralls -service=travis-ci
