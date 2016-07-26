@@ -2,7 +2,7 @@
 
 *mgfs is a [FUSE](https://bazil.org/fuse/) filesystem which uses [MongoDB GridFS](https://docs.mongodb.com/manual/core/gridfs/) as a storage backend.*
 
-[![Build Status](https://travis-ci.org/CpuID/mgfs.svg?branch=master)](https://travis-ci.org/CpuID/mgfs)
+[![Build Status](https://travis-ci.org/CpuID/mgfs.svg?branch=master)](https://travis-ci.org/CpuID/mgfs) [![Coverage Status](https://coveralls.io/repos/github/CpuID/mgfs/badge.svg?branch=master)](https://coveralls.io/github/CpuID/mgfs?branch=master)
 
 # Installation
 You need to have [Golang](https://golang.org/doc/install) installed.
