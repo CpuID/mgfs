@@ -145,6 +145,7 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	// Use the current user/group at all times, no references in MongoDB.
 	a.Uid = uint32(os.Getuid())
 	a.Gid = uint32(os.Getgid())
+	log.Printf("Dir[%s].Attr(): Results set in fuse.Attr, returning nil (no error).\n", d.Name)
 	return nil
 }
 

@@ -20,6 +20,12 @@ Don't forget to unmount the database when you are done (`umount /path/to/mount/d
 There is no caching layer implemented in-process or externally (eg. Redis or Memcached). As long as MongoDB is close to your FUSE process latency wise,
 you should have no issues. PRs are welcome to implement caching if there is interest :)
 
+# Working locally on the codebase
+
+- Make any code changes required
+- `test.sh` will put you in a shell in a container, with access to MongoDB (it runs `docker-compose up -d` within test.sh)
+- `./app -a $MONGODB_HOST -p 27017 -b databasename -m mountpoint/`
+
 # Todo
 - [x] Support GridFS read 
 - [x] Support GridFS remove 
