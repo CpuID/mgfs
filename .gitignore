@@ -22,4 +22,5 @@ _testmain.go
 *.exe
 *.test
 
-cpuid-mgfs
+bin/mgfs-*
+/cpuid-mgfs
